@@ -647,10 +647,11 @@ async function loadLogo() {
  
 async function buildDoc(v) {
   const { Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell,
-          AlignmentType, WidthType, BorderStyle, HeightRule } = docx;
+          AlignmentType, WidthType, BorderStyle, HeightRule, LineRuleType } = docx;
  
   const FONT = "Times New Roman";
-  const center = (runs, after = 120) => new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after }, children: runs });
+  const LINE_SPACING = 360;   // 1.5 lines in docx units
+  const center = (runs, after = 120) => new Paragraph({ alignment: AlignmentType.CENTER, spacing: { line: LINE_SPACING, lineRule: LineRuleType.AUTO, after }, children: runs });
   const run = (text, bold = false, size = FONT_PT*2) => new TextRun({ text, bold, font: FONT, size });
   const line = (text, bold = false, size = FONT_PT*2, after = 120) => center([run(text, bold, size)], after);
   const spacer = () => center([run("", false, FONT_PT*2)], 120);
