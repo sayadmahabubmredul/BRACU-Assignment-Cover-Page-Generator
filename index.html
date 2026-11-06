@@ -8,13 +8,14 @@ A work by ironstein
 <style>
   :root { --brand:#80011f; --bg:#ffffff; --card:#D9E7F8; --text:#000000; --muted:#6b89a4; --line:#58c8ee; }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  body { margin:0; font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif, serif,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
   .wrap { max-width:1000px; margin:0 auto; padding:24px 16px 48px; display:grid; gap:20px; grid-template-columns:1fr 1fr; }
   @media (max-width:800px){ .wrap{ grid-template-columns:1fr; } }
   h1 { grid-column:1/-1; margin:0; font-size:1.5rem; color:var(--brand); }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
   label { display:block; font-size:.85rem; font-weight:600; margin:14px 0 4px; }
   label:first-child { margin-top:0; }
+  input, select { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:1rem; background:#fff; }
   input { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:1rem; }
   input:focus { outline:2px solid var(--brand); border-color:transparent; }
   .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
@@ -42,12 +43,18 @@ A work by ironstein
 </head>
 <body>
 <div class="wrap">
-  <h1> BRAC University Assignment Cover Page Generator</h1>
+  <h1> BRAC University Assignment/Lab Report Cover Page Generator</h1>
  
   <div class="card">
-    <label for="assignmentNo">Assignment No.</label>
+    <label for="docType">Document Type</label>
+    <select id="docType">
+      <option value="assignment">Assignment</option>
+      <option value="lab">Lab Report</option>
+    </select>
+
+    <label for="assignmentNo" id="noLabel">Assignment No.</label>
     <input id="assignmentNo" placeholder="e.g. 1">
- 
+    
     
  
     <div class="row">
@@ -77,7 +84,10 @@ A work by ironstein
       </div>
       <div>
         <label for="semester">Semester</label>
-        <input id="semester" placeholder="e.g. Summer 2026">
+        <input id="semester" placeholder="select--">
+        <button id="forgetBtn" type="button" class="alt" style="margin-top:12px;padding:8px;font-size:.85rem;font-weight:500">
+  Clear saved name & ID
+</button>
       </div>
     </div>
  
@@ -95,7 +105,7 @@ A work by ironstein
       <img class="logo" id="pLogo" alt="" style="display:none">
       <p class="b" style="font-size:1.15rem">BRAC UNIVERSITY</p>
       <div class="gap"></div>
-      <p>Assignment no. <span data-f="assignmentNo"></span></p>
+      <p><span id="pCover">Assignment no.</span> <span data-f="assignmentNo"></span></p>
       <p>Course Title: <span data-f="courseTitle"></span></p>
       <p>Course ID: <span data-f="courseId"></span></p>
       <p>Section: <span data-f="section"></span></p>
@@ -171,6 +181,31 @@ let COURSES = [
  
 const FIELDS = ["assignmentNo","courseTitle","courseId","section","submittedTo","submittedBy","studentId","semester"];
 const $ = id => document.getElementById(id);
+const DOC_TYPES = {
+  assignment: { noLabel: "Assignment No.", cover: "Assignment no.", file: "Assignment", ph: "e.g. 1" },
+  lab:        { noLabel: "Lab Report No.", cover: "Lab Report no.", file: "LabReport",  ph: "e.g. 3" }
+};
+const docType = () => $("docType").value;
+const T = () => DOC_TYPES[docType()];
+
+// Independent lab courses: detected by title/code, plus a manual list for the ones it misses
+const LAB_EXTRA = [];   // e.g. ["PHY112", "CHE110"]
+const isLabCourse = ([id, title]) =>
+  /lab/i.test(title) || /\dL$/i.test(id) || LAB_EXTRA.includes(id);
+
+// In lab mode, lab courses are listed first, then everything else
+function coursePool() {
+  if (docType() !== "lab") return COURSES;
+  return [...COURSES.filter(isLabCourse), ...COURSES.filter(c => !isLabCourse(c))];
+}
+
+function applyDocType() {
+  $("noLabel").textContent = T().noLabel;
+  $("assignmentNo").placeholder = T().ph;
+  $("pCover").textContent = T().cover;
+}
+$("docType").addEventListener("change", applyDocType);
+applyDocType();
  
 function formatDate(v) {
   if (!v) return "";
@@ -398,6 +433,34 @@ submittedByInput.addEventListener("input", () => {
     input.setSelectionRange(cursorStart, cursorEnd);
   }
 
+  updatePreview();
+});
+/* ---------- Remember student details for next time ---------- */
+const SAVED_FIELDS = ["submittedBy", "studentId"];   // add "semester" here if you want it remembered too
+const SAVE_KEY = "coverPageStudent";
+
+function loadSaved() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "{}");
+    SAVED_FIELDS.forEach(id => { if (saved[id]) $(id).value = saved[id]; });
+  } catch (_) {}
+  updatePreview();
+}
+
+function saveNow() {
+  try {
+    const data = {};
+    SAVED_FIELDS.forEach(id => data[id] = $(id).value.trim());
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch (_) {}
+}
+
+SAVED_FIELDS.forEach(id => $(id).addEventListener("input", saveNow));
+loadSaved();
+
+$("forgetBtn").addEventListener("click", () => {
+  try { localStorage.removeItem(SAVE_KEY); } catch (_) {}
+  SAVED_FIELDS.forEach(id => $(id).value = "");
   updatePreview();
 });
  
