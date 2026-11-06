@@ -25,8 +25,13 @@ A work by ironstein
   .err { color:#b00020; font-size:.85rem; margin-top:10px; min-height:1em; }
  
   /* live preview */
-  .paper { background:#fff; border:1px solid var(--line); border-radius:4px; padding:28px 18px; font-family:"Times New Roman",Times,serif; text-align:center; font-size:.95rem; }
-  .paper p { margin:6px 0; }
+.paper {
+  background:#fff; border:1px solid var(--line); border-radius:4px;
+  padding:28px 18px; font-family:"Times New Roman",Times,serif;
+  text-align:center; font-size:.95rem;
+  aspect-ratio: 210 / 297;   /* A4 proportions */
+  width:100%;
+}  .paper p { margin:6px 0; }
   .paper .b { font-weight:bold; }
   .paper .gap { height:14px; }
   .paper .logo { max-width:110px; max-height:110px; margin-bottom:6px; }
@@ -94,7 +99,12 @@ A work by ironstein
     <label for="deadline">Deadline (Date of Submission)</label>
     <input id="deadline" type="date">
  
-    <button id="downloadBtn">Download Word (.docx)</button>
+   <label style="display:flex;align-items:center;gap:8px;margin-top:18px;font-weight:600;">
+  <input type="checkbox" id="includeTable" checked style="width:auto;margin:0;">
+  Include Signature / Remarks table
+</label>
+
+<button id="downloadBtn">Download Word (.docx)</button>
     <button id="pdfBtn" class="alt">Download PDF</button>
     <div class="err" id="err"></div>
   </div>
@@ -118,7 +128,7 @@ A work by ironstein
       <p class="b">ID: <span data-f="studentId"></span></p>
       <p>Semester: <span data-f="semester"></span></p>
       <p>Date of Submission: <span id="pDate"></span></p>
-      <table><tr><td>Signature</td><td>Remarks</td></tr><tr><td></td><td></td></tr></table>
+      <table id="pTable"><tr><td>Signature</td><td>Remarks</td></tr><tr><td></td><td></td></tr></table>
     </div>
   </div>
 </div>
@@ -220,6 +230,12 @@ function updatePreview() {
 }
 [...FIELDS, "deadline"].forEach(id => $(id).addEventListener("input", updatePreview));
 if (LOGO_SRC) { $("pLogo").src = LOGO_SRC; $("pLogo").style.display = "inline-block"; }
+function updatePreview() {
+  FIELDS.forEach(f => document.querySelectorAll(`[data-f="${f}"]`).forEach(el => el.textContent = $(f).value));
+  $("pDate").textContent = formatDate($("deadline").value);
+  $("pTable").style.display = $("includeTable").checked ? "" : "none";
+}
+$("includeTable").addEventListener("change", updatePreview);
 updatePreview();
  
 // ---- custom suggestion dropdown (works on every browser, incl. mobile) ----
@@ -663,6 +679,8 @@ async function buildDoc(v) {
     children.push(center([new ImageRun({ data: logo.data, type: logo.type, transformation: { width: LOGO_WIDTH, height: LOGO_HEIGHT } })], 120));
   }
  
+
+
   children.push(
     line(UNIVERSITY, true, HEADER_FONT_PT*2, 240),
     line(`Assignment no. ${v.assignmentNo}`),
@@ -689,15 +707,17 @@ async function buildDoc(v) {
     children: [new Paragraph({ alignment: AlignmentType.CENTER, children: text ? [run(text, false, FONT_PT*2)] : [] })]
   });
  
-  children.push(new Table({
-    width: { size: colW * 2, type: WidthType.DXA },
-    columnWidths: [colW, colW],
-    alignment: AlignmentType.CENTER,
-    rows: [
-      new TableRow({ children: [cell("Signature"), cell("Remarks")] }),
-      new TableRow({ height: { value: 1500, rule: HeightRule.ATLEAST }, children: [cell(""), cell("")] })
-    ]
-  }));
+     if (v.includeTable) {
+    children.push(new Table({
+      width: { size: colW * 2, type: WidthType.DXA },
+      columnWidths: [colW, colW],
+      alignment: AlignmentType.CENTER,
+      rows: [
+        new TableRow({ children: [cell("Signature"), cell("Remarks")] }),
+        new TableRow({ height: { value: 1500, rule: HeightRule.ATLEAST }, children: [cell(""), cell("")] })
+      ]
+    }));
+  }
  
   return new Document({
     sections: [{
@@ -712,6 +732,7 @@ function getValues() {
   [...FIELDS, "deadline"].forEach(id => v[id] = $(id).value.trim());
   const missing = [...FIELDS, "deadline"].filter(id => !v[id]);
   if (missing.length) { $("err").textContent = "Please fill in all the fields."; return null; }
+   v.includeTable = $("includeTable").checked;
   return v;
 }
  
@@ -747,7 +768,7 @@ function buildPdf(v) {
     doc.addImage(LOGO_SRC, fmt, CX - w / 2, y, w, h);
     y += h + 3;
   }
- 
+  
   line(UNIVERSITY, true, STEP + 3);
   line(`Assignment no. ${v.assignmentNo}`);
   line(`Course Title: ${v.courseTitle}`);
@@ -765,17 +786,21 @@ function buildPdf(v) {
   y += 7.4;
  
   // Signature / Remarks table
-  const TW = 159.2, TX = CX - TW / 2, HH = 8, BH = 26.5;
-  doc.setLineWidth(0.3);
-  doc.rect(TX, y, TW / 2, HH);
-  doc.rect(TX + TW / 2, y, TW / 2, HH);
-  doc.rect(TX, y + HH, TW / 2, BH);
-  doc.rect(TX + TW / 2, y + HH, TW / 2, BH);
-  doc.setFont("times", "normal");
-  doc.text("Signature", TX + TW / 4, y + 5.5, { align: "center" });
-  doc.text("Remarks", TX + 3 * TW / 4, y + 5.5, { align: "center" });
- 
+  if (v.includeTable) {
+    y += 7.4;
+    const TW = 159.2, TX = CX - TW / 2, HH = 8, BH = 26.5;
+    doc.setLineWidth(0.3);
+    doc.rect(TX, y, TW / 2, HH);
+    doc.rect(TX + TW / 2, y, TW / 2, HH);
+    doc.rect(TX, y + HH, TW / 2, BH);
+    doc.rect(TX + TW / 2, y + HH, TW / 2, BH);
+    doc.setFont("times", "normal");
+    doc.text("Signature", TX + TW / 4, y + 5.5, { align: "center" });
+    doc.text("Remarks", TX + 3 * TW / 4, y + 5.5, { align: "center" });
+  }
+    
   return doc;
+ 
 }
  
 $("downloadBtn").addEventListener("click", async () => {
