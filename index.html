@@ -106,6 +106,7 @@ A work by ironstein
 
 <button id="downloadBtn">Download Word (.docx)</button>
     <button id="pdfBtn" class="alt">Download PDF</button>
+    <button id="mergePageBtn" class="alt">Merge with scanned pages (next page) &rarr;</button>
     <div class="err" id="err"></div>
   </div>
  
@@ -825,6 +826,17 @@ $("pdfBtn").addEventListener("click", () => {
     console.error(e);
     $("err").textContent = "Could not create the PDF: " + e.message;
   }
+});
+</script>
+<script>
+/* Opens merge.html and passes the cover page details to it (used only if the student ticks "Add my cover page") */
+$("mergePageBtn").addEventListener("click", () => {
+  const v = {};
+  [...FIELDS, "deadline"].forEach(id => v[id] = $(id).value.trim());
+  v.includeTable = $("includeTable").checked;
+  const complete = [...FIELDS, "deadline"].every(id => v[id]);
+  try { localStorage.setItem("bracCover", JSON.stringify({ v, complete, docLabel: T().cover, logo: LOGO_SRC, ts: Date.now() })); } catch (e) { console.error(e); }
+  location.href = "merge.html" + (complete ? "?cover=1" : "");
 });
 </script>
 </body>
